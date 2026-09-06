@@ -1,28 +1,45 @@
 import os
-from fastapi import FastAPI, HTTPException, Header, Depends
-from pydantic import BaseModel, Field
+import sys
+from fastapi import FastAPI, Header, HTTPException, Depends
+from pydantic import BaseModel
 from dotenv import load_dotenv
-from services.telegram import enviar_mensagem_telegram
-from services.email import enviar_email_notificacao
+
+# Adiciona o diretório atual ao PATH para garantir a importação do pacote services
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from services.telegram import send_telegram_message
+from services.email import send_email_notification
 
 load_dotenv()
 
-app = FastAPI(
-    title="Hub de notificações multicanais",
-    description="API para recepção de webhooks e disparo de alertas automáticos."
-)
+app = FastAPI(title="Webhook Notification Hub")
 
-TOKEN_SECRETO = os.getenv("WEBHOOK_SECRET_TOKEN", "meutokenseguro123")
+WEBHOOK_SECRET_TOKEN = os.getenv("WEBHOOK_SECRET_TOKEN")
 
-class PayloadNotificacao(BaseModel):
-    evento: str = Field(...,The visible file structure shows a repetitive directory nesting issue: **`services/services/services/main.py`**.
+class NotificationPayload(BaseModel):
+    title: str
+    message: str
 
-In `main.py`, lines 5–6 attempt to import modules using `from services.telegram` and `from services.email`. Because Python looks for a top-level `services` directory relative to the project root or the Python path, these imports will raise a `ModuleNotFoundError` when executing `main.py`.
+def verify_token(x_webhook_token: str = Header(...)):
+    if x_webhook_token != WEBHOOK_SECRET_TOKEN:
+        raise HTTPException(status_code=401, detail="Token invalido")
+    return x_webhook_token
 
-**Solutions**
+@app.get("/")
+def read_root():
+    return {"message": "API de Notificacoes ativa!"}
 
-* **Fix the directory tree:** Move `main.py` up to `services/main.py` so that subfolders like `services/telegram.py` (or `services/telegram/`) sit at the same level relative to it.
-* **Fix the imports:** If `main.py` is intended to stay inside the `services/` directory alongside `telegram.py` and `email.py`, change the imports to relative or sibling paths:
-  ```python
-  from telegram import enviar_mensagem_telegram
-  from email_notificacao import enviar_email_notificacao  # or from .telegram / .email
+@app.post("/webhook/notificar")
+def receive_webhook(payload: NotificationPayload, token: str = Depends(verify_token)):
+    telegram_sent = send_telegram_message(payload.title, payload.message)
+    email_sent = send_email_notification(payload.title, payload.message)
+    
+    return {
+        "status": "sucesso",
+        "telegram_enviado": telegram_sent,
+        "email_enviado": email_sent
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
