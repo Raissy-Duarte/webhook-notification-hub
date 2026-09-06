@@ -1,11 +1,13 @@
 import os
 import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from fastapi import FastAPI, Header, HTTPException, Depends
 from pydantic import BaseModel
 from dotenv import load_dotenv
-
-# Adiciona o diretório atual ao PATH para garantir a importação do pacote services
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from services.telegram import send_telegram_message
 from services.email import send_email_notification
@@ -14,7 +16,7 @@ load_dotenv()
 
 app = FastAPI(title="Webhook Notification Hub")
 
-WEBHOOK_SECRET_TOKEN = os.getenv("WEBHOOK_SECRET_TOKEN")
+WEBHOOK_SECRET_TOKEN = os.getenv("WEBHOOK_SECRET_TOKEN", "meutokenseguro123")
 
 class NotificationPayload(BaseModel):
     title: str
